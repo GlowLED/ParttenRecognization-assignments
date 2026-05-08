@@ -15,3 +15,6 @@ exp1-pca_lda-classify/.external/
 .venv
 .codex
 .agents
+
+exp5-cifar-nn/data/
+exp5-cifar-nn/models/
