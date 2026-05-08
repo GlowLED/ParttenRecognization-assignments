@@ -8,5 +8,6 @@ dependencies = [
     "matplotlib>=3.8,<4.0",
     "mindspore>=2.8,<3.0",
     "numpy>=1.26,<2.0",
+    "scikit-learn>=1.0,<2.0",
     "tqdm>=4.67.3",
 ]
