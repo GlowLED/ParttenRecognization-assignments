@@ -1,0 +1,155 @@
+{
+  "pca_components": 2,
+  "results": [
+    {
+      "dataset": "wine",
+      "backend": "NumPy",
+      "reducer": "RAW",
+      "n_components": 11,
+      "train_accuracy": 0.9890321339234174,
+      "test_accuracy": 0.9892307692307692,
+      "final_loss": 0.08712712675333023,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 0.10389209700042557
+    },
+    {
+      "dataset": "wine",
+      "backend": "NumPy",
+      "reducer": "PCA",
+      "n_components": 2,
+      "train_accuracy": 0.9828747354242833,
+      "test_accuracy": 0.9838461538461538,
+      "final_loss": 0.10067366808652878,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 0.16348267499961366
+    },
+    {
+      "dataset": "wine",
+      "backend": "NumPy",
+      "reducer": "LDA",
+      "n_components": 1,
+      "train_accuracy": 0.9942274389070618,
+      "test_accuracy": 0.9953846153846154,
+      "final_loss": 0.13032057881355286,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 0.38488257600147335
+    },
+    {
+      "dataset": "wine",
+      "backend": "MindSporeOfficial",
+      "reducer": "RAW",
+      "n_components": 11,
+      "train_accuracy": 0.9890321339234174,
+      "test_accuracy": 0.9892307692307692,
+      "final_loss": 0.08712714910507202,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 41.669341920998704
+    },
+    {
+      "dataset": "wine",
+      "backend": "MindSporeOfficial",
+      "reducer": "PCA",
+      "n_components": 2,
+      "train_accuracy": 0.9828747354242833,
+      "test_accuracy": 0.9838461538461538,
+      "final_loss": 0.100673608481884,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 40.32114133700088
+    },
+    {
+      "dataset": "wine",
+      "backend": "MindSporeOfficial",
+      "reducer": "LDA",
+      "n_components": 1,
+      "train_accuracy": 0.9942274389070618,
+      "test_accuracy": 0.9953846153846154,
+      "final_loss": 0.13032054901123047,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 46.301681658000234
+    },
+    {
+      "dataset": "iris",
+      "backend": "NumPy",
+      "reducer": "RAW",
+      "n_components": 4,
+      "train_accuracy": 0.8916666666666667,
+      "test_accuracy": 0.9333333333333333,
+      "final_loss": 0.3237006366252899,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 0.012396200998409768
+    },
+    {
+      "dataset": "iris",
+      "backend": "NumPy",
+      "reducer": "PCA",
+      "n_components": 2,
+      "train_accuracy": 0.8583333333333333,
+      "test_accuracy": 0.9,
+      "final_loss": 0.34594452381134033,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 0.012810606000130065
+    },
+    {
+      "dataset": "iris",
+      "backend": "NumPy",
+      "reducer": "LDA",
+      "n_components": 2,
+      "train_accuracy": 0.9333333333333333,
+      "test_accuracy": 0.9333333333333333,
+      "final_loss": 0.3696752190589905,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 0.013908899998568813
+    },
+    {
+      "dataset": "iris",
+      "backend": "MindSporeOfficial",
+      "reducer": "RAW",
+      "n_components": 4,
+      "train_accuracy": 0.8916666666666667,
+      "test_accuracy": 0.9333333333333333,
+      "final_loss": 0.32370051741600037,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 1.8620071749992348
+    },
+    {
+      "dataset": "iris",
+      "backend": "MindSporeOfficial",
+      "reducer": "PCA",
+      "n_components": 2,
+      "train_accuracy": 0.8583333333333333,
+      "test_accuracy": 0.9,
+      "final_loss": 0.34594452381134033,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 1.9904533870012528
+    },
+    {
+      "dataset": "iris",
+      "backend": "MindSporeOfficial",
+      "reducer": "LDA",
+      "n_components": 2,
+      "train_accuracy": 0.9333333333333333,
+      "test_accuracy": 0.9333333333333333,
+      "final_loss": 0.3696751296520233,
+      "epochs_run": 100,
+      "converged": false,
+      "duration_sec": 1.8755144349997863
+    }
+  ],
+  "plots": [
+    "/home/glowled/workplace/ParttenRecognization-assignments/exp1-pca_lda-classify/outputs/wine_pca_2d.png",
+    "/home/glowled/workplace/ParttenRecognization-assignments/exp1-pca_lda-classify/outputs/wine_lda_1d.png",
+    "/home/glowled/workplace/ParttenRecognization-assignments/exp1-pca_lda-classify/outputs/iris_pca_2d.png",
+    "/home/glowled/workplace/ParttenRecognization-assignments/exp1-pca_lda-classify/outputs/iris_lda_2d.png"
+  ]
+}

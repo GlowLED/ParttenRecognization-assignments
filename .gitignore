@@ -9,6 +9,7 @@ wheels/
 # Downloaded experiment data
 exp1-pca_lda-classify/data/
 exp1-pca_lda-classify/.matplotlib-cache/
+exp1-pca_lda-classify/.external/
 
 # Virtual environments
 .venv

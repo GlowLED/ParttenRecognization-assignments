@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import os
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -10,15 +12,17 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-from data import CLASS_NAMES, DatasetSplit
+from data import DatasetSplit
 from model import NumpyLDA, NumpyPCA
 
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
-CLASS_COLORS = {
-    0: "#b53a3a",
-    1: "#d6a82e",
-}
+CLASS_COLORS = (
+    "#b53a3a",
+    "#d6a82e",
+    "#2f7f9f",
+    "#5f5aa2",
+)
 
 
 def save_reduction_plots(
@@ -35,15 +39,19 @@ def save_reduction_plots(
     pca.fit(split.x_train)
     z_pca = pca.transform(x_all)
 
-    lda = NumpyLDA()
+    lda = NumpyLDA(n_components=min(split.num_classes - 1, pca_components))
     lda.fit(split.x_train, split.y_train)
     z_lda = lda.transform(x_all)
 
-    pca_path = os.path.join(output_dir, "pca_2d.png")
-    lda_path = os.path.join(output_dir, "lda_1d.png")
+    pca_path = os.path.join(output_dir, f"{split.dataset_name}_pca_2d.png")
+    lda_suffix = "2d" if z_lda.shape[1] >= 2 else "1d"
+    lda_path = os.path.join(output_dir, f"{split.dataset_name}_lda_{lda_suffix}.png")
 
-    _plot_pca(z_pca, y_all, pca_path)
-    _plot_lda(z_lda, y_all, lda_path)
+    _plot_2d(z_pca[:, :2], y_all, split.class_names, "PCA 2D Projection", "PC1", "PC2", pca_path)
+    if z_lda.shape[1] >= 2:
+        _plot_2d(z_lda[:, :2], y_all, split.class_names, "LDA 2D Projection", "LD1", "LD2", lda_path)
+    else:
+        _plot_1d(z_lda.reshape(-1), y_all, split.class_names, "LDA 1D Projection", "LD1", lda_path)
     return [pca_path, lda_path]
 
 
@@ -51,25 +59,37 @@ def _class_slices(y: np.ndarray) -> List[Tuple[int, np.ndarray]]:
     return [(int(label), y == label) for label in sorted(np.unique(y))]
 
 
-def _plot_pca(z: np.ndarray, y: np.ndarray, output_path: str) -> None:
+def _class_color(label: int) -> str:
+    return CLASS_COLORS[label % len(CLASS_COLORS)]
+
+
+def _plot_2d(
+    z: np.ndarray,
+    y: np.ndarray,
+    class_names: Dict[int, str],
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    output_path: str,
+) -> None:
     if z.shape[1] != 2:
-        raise ValueError("PCA 可视化要求二维输入")
+        raise ValueError("二维可视化要求输入 shape 为 [n_samples, 2]")
 
     fig, ax = plt.subplots(figsize=(8, 6), dpi=160)
     for label, mask in _class_slices(y):
         ax.scatter(
             z[mask, 0],
             z[mask, 1],
-            s=12,
-            alpha=0.62,
-            c=CLASS_COLORS[label],
+            s=14,
+            alpha=0.65,
+            c=_class_color(label),
             edgecolors="none",
-            label=CLASS_NAMES[label],
+            label=class_names[label],
         )
 
-    ax.set_title("PCA 2D Projection")
-    ax.set_xlabel("PC1")
-    ax.set_ylabel("PC2")
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
     ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.35)
     ax.legend(frameon=True)
     fig.tight_layout()
@@ -77,9 +97,14 @@ def _plot_pca(z: np.ndarray, y: np.ndarray, output_path: str) -> None:
     plt.close(fig)
 
 
-def _plot_lda(z: np.ndarray, y: np.ndarray, output_path: str) -> None:
-    values = z.reshape(-1)
-
+def _plot_1d(
+    values: np.ndarray,
+    y: np.ndarray,
+    class_names: Dict[int, str],
+    title: str,
+    xlabel: str,
+    output_path: str,
+) -> None:
     fig, ax = plt.subplots(figsize=(8, 4.8), dpi=160)
     for label, mask in _class_slices(y):
         class_values = values[mask]
@@ -88,19 +113,19 @@ def _plot_lda(z: np.ndarray, y: np.ndarray, output_path: str) -> None:
             bins=48,
             density=True,
             alpha=0.58,
-            color=CLASS_COLORS[label],
-            label=CLASS_NAMES[label],
+            color=_class_color(label),
+            label=class_names[label],
         )
         ax.axvline(
             class_values.mean(),
-            color=CLASS_COLORS[label],
+            color=_class_color(label),
             linestyle="--",
             linewidth=1.5,
             alpha=0.9,
         )
 
-    ax.set_title("LDA 1D Projection")
-    ax.set_xlabel("LD1")
+    ax.set_title(title)
+    ax.set_xlabel(xlabel)
     ax.set_ylabel("Density")
     ax.grid(True, axis="y", linestyle="--", linewidth=0.5, alpha=0.35)
     ax.legend(frameon=True)
