@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "numpy>=2.4.4",
+    "matplotlib>=3.8,<4.0",
+    "mindspore>=2.8,<3.0",
+    "numpy>=1.26,<2.0",
     "tqdm>=4.67.3",
 ]

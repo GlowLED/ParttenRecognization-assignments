@@ -6,5 +6,9 @@ dist/
 wheels/
 *.egg-info
 
+# Downloaded experiment data
+exp1-pca_lda-classify/data/
+exp1-pca_lda-classify/.matplotlib-cache/
+
 # Virtual environments
 .venv
