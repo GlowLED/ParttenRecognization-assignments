@@ -12,3 +12,5 @@ exp1-pca_lda-classify/.matplotlib-cache/
 
 # Virtual environments
 .venv
+.codex
+.agents
