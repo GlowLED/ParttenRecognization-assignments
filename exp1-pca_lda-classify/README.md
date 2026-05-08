@@ -38,6 +38,279 @@
 
 这样可以保证 NumPy 与 MindSpore 路径使用相同数据、相同降维结果、相同初始化和相同学习率，便于观察框架实现差异。
 
+## 数学推导
+
+### 1. PCA（主成分分析）
+
+#### 1.1 问题定义
+
+给定 $n$ 个 $d$ 维样本 $\mathbf{x}_1, \mathbf{x}_2, \ldots, \mathbf{x}_n \in \mathbb{R}^d$，PCA 的目标是找到一个投影方向 $\mathbf{w} \in \mathbb{R}^d$（$\|\mathbf{w}\| = 1$），使得投影后的数据方差最大。
+
+#### 1.2 目标函数
+
+投影后的样本为 $z_i = \mathbf{w}^T \mathbf{x}_i$，投影后方差为：
+
+$$\text{Var}(z) = \frac{1}{n} \sum_{i=1}^{n} (z_i - \bar{z})^2 = \mathbf{w}^T \mathbf{S} \mathbf{w}$$
+
+其中 $\mathbf{S}$ 为样本协方差矩阵：
+
+$$\mathbf{S} = \frac{1}{n} \sum_{i=1}^{n} (\mathbf{x}_i - \bar{\mathbf{x}})(\mathbf{x}_i - \bar{\mathbf{x}})^T = \frac{1}{n} \mathbf{X}_c^T \mathbf{X}_c$$
+
+其中 $\mathbf{X}_c$ 为中心化后的数据矩阵。
+
+#### 1.3 优化问题
+
+$$\max_{\mathbf{w}} \quad \mathbf{w}^T \mathbf{S} \mathbf{w}$$
+$$\text{s.t.} \quad \mathbf{w}^T \mathbf{w} = 1$$
+
+#### 1.4 求解方法：拉格朗日乘子法
+
+构造拉格朗日函数：
+
+$$L(\mathbf{w}, \lambda) = \mathbf{w}^T \mathbf{S} \mathbf{w} - \lambda (\mathbf{w}^T \mathbf{w} - 1)$$
+
+对 $\mathbf{w}$ 求导并令其为零：
+
+$$\frac{\partial L}{\partial \mathbf{w}} = 2\mathbf{S}\mathbf{w} - 2\lambda\mathbf{w} = 0$$
+
+$$\mathbf{S}\mathbf{w} = \lambda\mathbf{w}$$
+
+这是一个特征值问题。方差为：
+
+$$\mathbf{w}^T \mathbf{S} \mathbf{w} = \mathbf{w}^T \lambda \mathbf{w} = \lambda$$
+
+因此，**最大化方差等价于选择最大特征值对应的特征向量**。
+
+#### 1.5 SVD 求解
+
+实际计算中，对中心化矩阵 $\mathbf{X}_c$ 进行奇异值分解（SVD）：
+
+$$\mathbf{X}_c = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^T$$
+
+协方差矩阵为：
+
+$$\mathbf{S} = \frac{1}{n} \mathbf{V} \mathbf{\Sigma}^2 \mathbf{V}^T$$
+
+特征值 $\lambda_i = \sigma_i^2 / n$，特征向量即为 $\mathbf{V}$ 的列向量。选择前 $k$ 个最大特征值对应的特征向量构成投影矩阵 $\mathbf{W}_k \in \mathbb{R}^{d \times k}$。
+
+#### 1.6 降维
+
+$$\mathbf{Z} = \mathbf{X}_c \mathbf{W}_k$$
+
+其中 $\mathbf{Z} \in \mathbb{R}^{n \times k}$ 为降维后的数据。
+
+#### 1.7 方差解释比
+
+第 $i$ 个主成分的方差解释比为：
+
+$$\text{ratio}_i = \frac{\lambda_i}{\sum_{j=1}^{d} \lambda_j} = \frac{\sigma_i^2}{\sum_{j=1}^{d} \sigma_j^2}$$
+
+---
+
+### 2. LDA（线性判别分析）
+
+#### 2.1 问题定义
+
+LDA（Fisher's Linear Discriminant）的目标是找到投影方向 $\mathbf{w}$，使得投影后**类间方差最大化**，**类内方差最小化**。
+
+#### 2.2 统计量定义
+
+- **类内散布矩阵**（Within-class scatter matrix）：
+
+$$\mathbf{S}_W = \sum_{k=1}^{K} \sum_{\mathbf{x}_i \in C_k} (\mathbf{x}_i - \boldsymbol{\mu}_k)(\mathbf{x}_i - \boldsymbol{\mu}_k)^T$$
+
+- **类间散布矩阵**（Between-class scatter matrix）：
+
+$$\mathbf{S}_B = \sum_{k=1}^{K} n_k (\boldsymbol{\mu}_k - \boldsymbol{\mu})(\boldsymbol{\mu}_k - \boldsymbol{\mu})^T$$
+
+其中：
+- $K$ 为类别数
+- $C_k$ 为第 $k$ 类样本集合
+- $n_k = |C_k|$ 为第 $k$ 类样本数
+- $\boldsymbol{\mu}_k$ 为第 $k$ 类样本均值
+- $\boldsymbol{\mu}$ 为所有样本的全局均值
+
+#### 2.3 Fisher 准则函数
+
+$$J(\mathbf{w}) = \frac{\mathbf{w}^T \mathbf{S}_B \mathbf{w}}{\mathbf{w}^T \mathbf{S}_W \mathbf{w}}$$
+
+#### 2.4 优化问题
+
+$$\max_{\mathbf{w}} \quad J(\mathbf{w}) = \frac{\mathbf{w}^T \mathbf{S}_B \mathbf{w}}{\mathbf{w}^T \mathbf{S}_W \mathbf{w}}$$
+
+#### 2.5 求解方法：广义特征值问题
+
+对 $J(\mathbf{w})$ 求导并令其为零：
+
+$$\frac{\partial J}{\partial \mathbf{w}} = \frac{2\mathbf{S}_B \mathbf{w} (\mathbf{w}^T \mathbf{S}_W \mathbf{w}) - 2\mathbf{S}_W \mathbf{w} (\mathbf{w}^T \mathbf{S}_B \mathbf{w})}{(\mathbf{w}^T \mathbf{S}_W \mathbf{w})^2} = 0$$
+
+化简得：
+
+$$\mathbf{S}_B \mathbf{w} = \lambda \mathbf{S}_W \mathbf{w}$$
+
+其中 $\lambda = \frac{\mathbf{w}^T \mathbf{S}_B \mathbf{w}}{\mathbf{w}^T \mathbf{S}_W \mathbf{w}}$。
+
+#### 2.6 正则化求解
+
+当 $\mathbf{S}_W$ 奇异时，添加正则化项：
+
+$$\mathbf{S}_W^* = \mathbf{S}_W + \alpha \mathbf{I}$$
+
+其中 $\alpha > 0$ 为正则化系数（本实验取 $\alpha = 10^{-4}$）。
+
+求解广义特征值问题：
+
+$$\mathbf{S}_W^{*-1} \mathbf{S}_B \mathbf{w} = \lambda \mathbf{w}$$
+
+#### 2.7 降维维度
+
+对于 $K$ 类问题，LDA 最多可提取 $K-1$ 个有效判别方向。选择前 $k$ 个最大特征值对应的特征向量构成投影矩阵 $\mathbf{W}_k \in \mathbb{R}^{d \times k}$（$k \leq K-1$）。
+
+#### 2.8 降维
+
+$$\mathbf{Z} = (\mathbf{X} - \boldsymbol{\mu}) \mathbf{W}_k$$
+
+---
+
+### 3. Softmax Regression（多项逻辑回归）
+
+#### 3.1 模型定义
+
+对于 $K$ 类分类问题，给定输入特征 $\mathbf{x} \in \mathbb{R}^d$，模型参数 $\mathbf{W} \in \mathbb{R}^{d \times K}$ 和偏置 $\mathbf{b} \in \mathbb{R}^K$。
+
+线性变换（logits）：
+
+$$\mathbf{z} = \mathbf{W}^T \mathbf{x} + \mathbf{b}$$
+
+#### 3.2 Softmax 函数
+
+将 logits 转换为概率分布：
+
+$$P(y = k | \mathbf{x}) = \hat{p}_k = \frac{e^{z_k}}{\sum_{j=1}^{K} e^{z_j}}$$
+
+**数值稳定性优化**：为防止指数溢出，先减去最大值：
+
+$$z_k' = z_k - \max_j z_j$$
+
+$$\hat{p}_k = \frac{e^{z_k'}}{\sum_{j=1}^{K} e^{z_j'}}$$
+
+#### 3.3 交叉熵损失
+
+对于单个样本 $(\mathbf{x}_i, y_i)$，其中 $y_i \in \{0, 1, \ldots, K-1\}$：
+
+$$\ell_i = -\log \hat{p}_{y_i} = -z_{y_i} + \log \sum_{j=1}^{K} e^{z_j}$$
+
+对于 $N$ 个样本的平均损失：
+
+$$L(\mathbf{W}, \mathbf{b}) = -\frac{1}{N} \sum_{i=1}^{N} \log \hat{p}_{y_i}$$
+
+#### 3.4 梯度推导
+
+定义 one-hot 编码标签 $\mathbf{t}_i \in \{0, 1\}^K$，其中 $t_{i,k} = \mathbb{1}[y_i = k]$。
+
+对 logits $z_k$ 求导：
+
+$$\frac{\partial \ell_i}{\partial z_k} = \hat{p}_k - t_{i,k}$$
+
+对权重 $\mathbf{W}$ 求导（利用链式法则）：
+
+$$\frac{\partial \ell_i}{\partial \mathbf{W}} = \mathbf{x}_i (\hat{\mathbf{p}}_i - \mathbf{t}_i)^T$$
+
+对偏置 $\mathbf{b}$ 求导：
+
+$$\frac{\partial \ell_i}{\partial \mathbf{b}} = \hat{\mathbf{p}}_i - \mathbf{t}_i$$
+
+对于整个数据集的平均梯度：
+
+$$\nabla_{\mathbf{W}} L = \frac{1}{N} \mathbf{X}^T (\hat{\mathbf{P}} - \mathbf{T})$$
+
+$$\nabla_{\mathbf{b}} L = \frac{1}{N} \sum_{i=1}^{N} (\hat{\mathbf{p}}_i - \mathbf{t}_i)$$
+
+其中 $\hat{\mathbf{P}} \in \mathbb{R}^{N \times K}$ 为预测概率矩阵，$\mathbf{T} \in \mathbb{R}^{N \times K}$ 为 one-hot 标签矩阵。
+
+---
+
+### 4. 优化方法
+
+#### 4.1 全批量梯度下降（Batch Gradient Descent）
+
+参数更新规则：
+
+$$\mathbf{W}^{(t+1)} = \mathbf{W}^{(t)} - \eta \nabla_{\mathbf{W}} L$$
+
+$$\mathbf{b}^{(t+1)} = \mathbf{b}^{(t)} - \eta \nabla_{\mathbf{b}} L$$
+
+其中 $\eta$ 为学习率（本实验取 $\eta = 0.1$）。
+
+#### 4.2 早停策略（Early Stopping）
+
+为防止过拟合和不必要的计算，采用基于 loss 变化的早停策略：
+
+```
+stale_epochs = 0
+previous_loss = None
+
+for epoch in 1, 2, ..., max_epochs:
+    loss = train_one_epoch()
+    
+    if previous_loss is not None and |previous_loss - loss| < tol:
+        stale_epochs += 1
+        if stale_epochs >= patience:
+            converged = True
+            break
+    else:
+        stale_epochs = 0
+    
+    previous_loss = loss
+```
+
+参数说明：
+- `tol = 1e-7`：loss 变化阈值
+- `patience = 20`：连续满足阈值的轮数
+- `max_epochs = 100`：最大迭代轮数
+
+#### 4.3 收敛性分析
+
+梯度下降的收敛速度取决于：
+
+1. **学习率 $\eta$**：过大导致震荡，过小导致收敛慢
+2. **损失函数的 Lipschitz 常数**：$L$-smoothness 条件
+3. **初始化**：零初始化 vs 随机初始化
+
+对于凸函数，梯度下降的收敛速率为 $O(1/t)$，其中 $t$ 为迭代次数。
+
+---
+
+### 5. 算法复杂度分析
+
+| 算法 | 时间复杂度 | 空间复杂度 |
+|------|-----------|-----------|
+| PCA (SVD) | $O(nd \min(n, d))$ | $O(nd + d^2)$ |
+| LDA | $O(nd^2 + d^3)$ | $O(d^2)$ |
+| Softmax Regression (per epoch) | $O(ndK)$ | $O(dK + nK)$ |
+
+其中 $n$ 为样本数，$d$ 为特征维度，$K$ 为类别数。
+
+---
+
+### 6. 优化技巧
+
+#### 6.1 数值稳定性
+
+- **Softmax**：减去最大值防止指数溢出
+- **对数计算**：添加小量 $\epsilon = 10^{-8}$ 防止 $\log(0)$
+- **LDA 正则化**：添加 $\alpha \mathbf{I}$ 防止 $\mathbf{S}_W$ 奇异
+
+#### 6.2 数据预处理
+
+- **标准化**：$\mathbf{x}' = (\mathbf{x} - \boldsymbol{\mu}) / \boldsymbol{\sigma}$，使各特征尺度一致
+- **中心化**：PCA 要求数据零均值
+
+#### 6.3 初始化策略
+
+- **零初始化**：本实验采用，适合线性模型
+- **Xavier 初始化**：适合深度网络，$\mathbf{W} \sim \mathcal{N}(0, 2/(d_{in} + d_{out}))$
+
 ## 运行方式
 
 ```bash
