@@ -265,3 +265,183 @@ class MLP:
                     layer.b = params[param_idx]['b']
                     param_idx += 1
         print(f"模型已加载: {filepath}")
+
+
+def _require_mindspore():
+    """导入 MindSpore 相关模块"""
+    try:
+        import mindspore as ms
+        import mindspore.dataset as ds
+        import mindspore.nn as nn
+        from mindspore import Tensor
+        from mindspore.common import set_seed
+        from mindspore.train import Model
+        from mindspore.train.callback import Callback, LossMonitor
+        from mindspore.train.metrics import Accuracy
+    except ImportError as exc:
+        raise RuntimeError("MindSpore 未安装，无法运行 MindSpore 版本") from exc
+    return ms, ds, nn, Tensor, set_seed, Model, Callback, LossMonitor, Accuracy
+
+
+class _AccuracyCallback:
+    """自定义回调：记录每个 epoch 的 loss 和测试准确率"""
+
+    def __init__(self, model_net, x_test_np, y_test_np, ms_module, callback_class):
+        self.model_net = model_net
+        self.x_test = x_test_np
+        self.y_test = y_test_np
+        self.ms = ms_module
+        self.losses = []
+        self.accuracies = []
+        self.epochs_run = 0
+
+        class _Inner(callback_class):
+            def __init__(self, outer):
+                super().__init__()
+                self.outer = outer
+
+            def on_train_epoch_end(self, run_context):
+                cb_params = run_context.original_args()
+                # 获取 loss
+                loss_val = cb_params.net_outputs
+                if hasattr(loss_val, 'asnumpy'):
+                    loss_val = float(loss_val.asnumpy().mean())
+                elif isinstance(loss_val, (tuple, list)):
+                    loss_val = float(loss_val[0].asnumpy().mean()) if hasattr(loss_val[0], 'asnumpy') else float(loss_val[0])
+                self.outer.losses.append(loss_val)
+                self.outer.epochs_run = int(cb_params.cur_epoch_num)
+
+                # 计算测试准确率
+                test_tensor = self.outer.ms.Tensor(self.outer.x_test, self.outer.ms.float32)
+                logits = self.outer.model_net(test_tensor)
+                pred = logits.asnumpy().argmax(axis=1)
+                acc = float(np.mean(pred == self.outer.y_test))
+                self.outer.accuracies.append(acc)
+
+        self.callback = _Inner(self)
+
+
+class MindSporeMLP:
+    """
+    MindSpore 版本的多层感知机
+    与 NumPy 版本 MLP 架构完全相同：3072 -> 512 -> 256 -> 128 -> 10
+    """
+
+    def __init__(
+        self,
+        input_dim: int = 3072,
+        hidden_dims: List[int] = None,
+        output_dim: int = 10,
+        lr: float = 0.01,
+        epochs: int = 100,
+        batch_size: int = 64,
+        seed: int = 42,
+    ) -> None:
+        if hidden_dims is None:
+            hidden_dims = [512, 256, 128]
+        self.input_dim = input_dim
+        self.hidden_dims = hidden_dims
+        self.output_dim = output_dim
+        self.lr = lr
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.seed = seed
+        self.net = None
+        self.losses: List[float] = []
+        self.accuracies: List[float] = []
+        self.epochs_run = 0
+
+    def _build_network(self, ms_module, nn_module):
+        """构建与 NumPy 版本相同的网络架构"""
+        class _MLPNet(nn_module.Cell):
+            def __init__(self, input_dim, hidden_dims, output_dim):
+                super().__init__()
+                self.layers = nn_module.CellList()
+                dims = [input_dim] + hidden_dims
+                for i in range(len(dims) - 1):
+                    self.layers.append(nn_module.Dense(dims[i], dims[i + 1]))
+                    self.layers.append(nn_module.Sigmoid())
+                self.layers.append(nn_module.Dense(dims[-1], output_dim))
+
+            def construct(self, x):
+                for layer in self.layers:
+                    x = layer(x)
+                return x
+
+        return _MLPNet(self.input_dim, self.hidden_dims, self.output_dim)
+
+    def fit(self, x_train: np.ndarray, y_train: np.ndarray,
+            x_test: np.ndarray, y_test: np.ndarray) -> dict:
+        """
+        训练模型
+
+        参数:
+            x_train: 训练数据 (N, 3072)
+            y_train: 训练标签 (N,) 整数
+            x_test: 测试数据 (N, 3072)
+            y_test: 测试标签 (N,) 整数
+
+        返回:
+            dict: 包含 losses, accuracies, epochs_run, final_accuracy
+        """
+        ms, ds, nn, Tensor, set_seed, Model, Callback, LossMonitor, Accuracy = _require_mindspore()
+        ms.set_context(mode=ms.PYNATIVE_MODE)
+        set_seed(self.seed)
+
+        # 构建网络
+        self.net = self._build_network(ms, nn)
+
+        # 准备数据集
+        train_dataset = ds.NumpySlicesDataset(
+            {"features": x_train.astype(np.float32), "labels": y_train.astype(np.int32)},
+            shuffle=True,
+        ).batch(self.batch_size)
+
+        # 损失函数和优化器
+        loss_fn = nn.SoftmaxCrossEntropyWithLogits(sparse=True, reduction="mean")
+        optimizer = nn.SGD(self.net.trainable_params(), learning_rate=self.lr)
+
+        # 创建 Model
+        model = Model(self.net, loss_fn, optimizer, metrics={"Accuracy": Accuracy()})
+
+        # 创建回调
+        acc_callback = _AccuracyCallback(self.net, x_test, y_test, ms, Callback)
+        loss_monitor = LossMonitor(per_print_times=train_dataset.get_dataset_size() * self.epochs + 1)
+
+        # 训练
+        print(f"开始 MindSpore 训练: epochs={self.epochs}, batch_size={self.batch_size}, lr={self.lr}")
+        model.train(
+            self.epochs,
+            train_dataset,
+            callbacks=[loss_monitor, acc_callback.callback],
+            dataset_sink_mode=False,
+        )
+
+        # 保存结果
+        self.losses = acc_callback.losses
+        self.accuracies = acc_callback.accuracies
+        self.epochs_run = acc_callback.epochs_run
+
+        final_accuracy = self.accuracies[-1] if self.accuracies else 0.0
+        print(f"训练完成: epochs={self.epochs_run}, final_test_acc={final_accuracy:.4f}")
+
+        return {
+            "losses": self.losses,
+            "accuracies": self.accuracies,
+            "epochs_run": self.epochs_run,
+            "final_accuracy": final_accuracy,
+        }
+
+    def predict(self, x: np.ndarray) -> np.ndarray:
+        """预测"""
+        if self.net is None:
+            raise RuntimeError("模型尚未训练")
+        ms, _, _, Tensor, _, _, _, _, _ = _require_mindspore()
+        x_tensor = Tensor(x.astype(np.float32), ms.float32)
+        logits = self.net(x_tensor)
+        return logits.asnumpy().argmax(axis=1)
+
+    def evaluate(self, x: np.ndarray, y: np.ndarray) -> float:
+        """评估准确率"""
+        pred = self.predict(x)
+        return float(np.mean(pred == y))
